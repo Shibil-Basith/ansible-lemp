@@ -1,0 +1,82 @@
+---
+# -------------------------------
+# Ensure user exists (safe)
+# -------------------------------
+
+- name: Ensure SFTP user exists
+  user:
+    name: "{{ sftp_user }}"
+    state: present
+
+# -------------------------------
+# Set password
+# -------------------------------
+
+- name: Set password for SFTP user
+  user:
+    name: "{{ sftp_user }}"
+    password: "{{ sftp_password | password_hash('sha512') }}"
+
+# -------------------------------
+# Enable PasswordAuthentication in main sshd_config
+# -------------------------------
+
+- name: Enable PasswordAuthentication in sshd_config
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication yes'
+    create: yes
+  notify: Restart ssh
+
+# -------------------------------
+# Enable PasswordAuthentication in 50-cloud-init.conf
+# -------------------------------
+
+- name: Enable PasswordAuthentication in 50-cloud-init.conf
+  lineinfile:
+    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication yes'
+    create: yes
+  notify: Restart ssh
+
+# -------------------------------
+# Configure SFTP Jail
+# -------------------------------
+
+- name: Configure SFTP jail
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    marker: "# {mark} ANSIBLE SFTP CONFIG"
+    block: |
+      Match User {{ sftp_user }}
+          ChrootDirectory {{ sftp_home }}
+          ForceCommand internal-sftp
+          X11Forwarding no
+          AllowTcpForwarding no
+          PasswordAuthentication yes
+  notify: Restart ssh
+
+# -------------------------------
+# Fix Chroot Permissions
+# -------------------------------
+
+- name: Set correct ownership for chroot dir
+  file:
+    path: "{{ sftp_home }}"
+    owner: root
+    group: root
+    mode: '0755'
+
+# -------------------------------
+# Create writable directory
+# -------------------------------
+
+- name: Create upload directory
+  file:
+    path: "{{ sftp_home }}/{{ sftp_upload_dir }}"
+    state: directory
+    owner: "{{ sftp_user }}"
+    group: "{{ sftp_user }}"
+    mode: '0755'

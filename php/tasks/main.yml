@@ -1,0 +1,145 @@
+---
+- name: Install required packages
+  dnf:
+    name:
+      - php
+      - php-fpm
+      - php-mysqlnd
+      - php-mbstring
+      - php-zip
+      - php-json
+      - wget
+      - unzip
+      - pip
+    state: present
+
+# -------------------------------
+# PHP-FPM CONFIGURATION
+# -------------------------------
+- name: Configure php-fpm
+  template:
+    src: www.conf.j2
+    dest: /etc/php-fpm.d/www.conf
+  notify: restart php-fpm
+
+- name: Start and enable php-fpm
+  service:
+    name: php-fpm
+    state: started
+    enabled: yes
+
+
+
+
+
+
+# -------------------------------
+# WORDPRESS INSTALLATION
+# -------------------------------
+- name: Download wordpress
+  shell: |
+     wget -O /tmp/wordpress.zip https://wordpress.org/latest.zip
+  args:
+    creates: /tmp/wordpress.zip
+
+- name: Extract wordpress
+  unarchive:
+    src: /tmp/wordpress.zip
+    dest: /tmp/
+    remote_src: yes
+
+- name: Copy wordpress to web root
+  copy:
+    src: /tmp/wordpress/
+    dest: /home/shibil/lemp/public/
+    remote_src: yes
+
+# -------------------------------
+# PHPMYADMIN CONFIG
+# -------------------------------
+- name: Create wp-config.php
+  template:
+    src: wp-config.php.j2
+    dest: /home/shibil/lemp/public/wp-config.php
+    owner: nginx
+    group: nginx
+    mode: '0644'
+
+# -------------------------------
+# PHPMYADMIN INSTALLATION
+# -------------------------------
+- name: Download phpMyAdmin
+  shell: |
+     wget -O /tmp/phpmyadmin.zip https://files.phpmyadmin.net/phpMyAdmin/5.2.3/phpMyAdmin-5.2.3-all-languages.zip
+  args:
+    creates: /tmp/phpmyadmin.zip
+
+- name: Extract phpMyAdmin
+  unarchive:
+    src: /tmp/phpmyadmin.zip
+    dest: /tmp/
+    remote_src: yes
+
+- name: Copy phpMyAdmin to web root
+  copy:
+    src: /tmp/phpMyAdmin-5.2.3-all-languages/
+    dest: /home/shibil/lemp/public/phpmyadmin/
+    remote_src: yes
+
+# -------------------------------
+# PHPMYADMIN CONFIG
+# -------------------------------
+- name: Create phpMyAdmin config file
+  copy:
+    dest: /home/shibil/lemp/public/phpmyadmin/config.inc.php
+    content: |
+      <?php
+      $cfg['blowfish_secret'] = 'mysecretkey123';
+      $i = 0;
+      $i++;
+      $cfg['Servers'][$i]['auth_type'] = 'cookie';
+      $cfg['Servers'][$i]['host'] = 'localhost';
+      $cfg['Servers'][$i]['AllowNoPassword'] = true;
+
+# -------------------------------
+# PERMISSIONS
+# -------------------------------
+- name: Set ownership for web directory
+  file:
+    path: /home/shibil/lemp
+    owner: nginx
+    group: nginx
+    recurse: yes
+
+# -------------------------------
+# SELINUX FIX
+# -------------------------------
+- name: Set SELinux context for web directory
+  command: chcon -Rt httpd_sys_content_t /home/shibil/lemp
+
+- name: Allow PHP network connections
+  command: setsebool -P httpd_can_network_connect 1
+
+# -------------------------------
+# CLEANUP
+# -------------------------------
+- name: Remove phpMyAdmin zip file
+  file:
+    path: /tmp/phpmyadmin.zip
+    state: absent
+
+- name: Remove extracted phpMyAdmin folder
+  file:
+    path: /tmp/phpMyAdmin-5.2.3-all-languages
+    state: absent
+
+- name: Remove wordpree zip file
+  file:
+    path: /tmp/wordpress.zip
+    state: absent
+
+- name: Remove extracted wordpress folder
+  file:
+    path: /tmp/wordpress
+    state: absent
+

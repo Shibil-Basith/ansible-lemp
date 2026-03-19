@@ -1,0 +1,5 @@
+---
+wp_db_name: wordpress
+wp_db_user: shibil
+wp_db_password: Shibil@2001
+wp_db_host: localhost

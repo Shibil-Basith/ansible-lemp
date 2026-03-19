@@ -1,0 +1,5 @@
+---
+sftp_user: shibil
+sftp_home: /home/shibil
+sftp_upload_dir: files
+sftp_password: "Shibil@2001"

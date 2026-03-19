@@ -1,0 +1,60 @@
+---
+- name: Install nginx
+  dnf:
+    name: nginx
+    state: present
+
+- name: Install firewalld
+  dnf:
+    name: firewalld
+    state: present
+
+- name: Start and enable firewalld
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Create web root directory
+  file:
+    path: /home/shibil/lemp/public
+    state: directory
+    owner: nginx
+    group: nginx
+    mode: '0755'
+    recurse: yes
+
+- name: Deploy nginx config
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/conf.d/lemp.conf
+  notify: restart nginx
+
+- name: Start nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Open HTTP port
+  ansible.posix.firewalld:
+    service: http
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Open HTTP port
+  ansible.posix.firewalld:
+    service: https
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+
+- name: Deploy PHP test file
+  template:
+    src: index.php.j2
+    dest: /home/shibil/lemp/public/index.php
+    owner: nginx
+    group: nginx
+    mode: '0644'

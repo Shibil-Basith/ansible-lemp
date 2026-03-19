@@ -1,0 +1,114 @@
+---
+# -------------------------------
+# Install MariaDB
+# -------------------------------
+
+- name: Install MariaDB
+  dnf:
+    name: mariadb-server
+    state: present
+
+- name: Start and enable MariaDB
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Install PyMySQL (required)
+  dnf:
+    name: python3-PyMySQL
+    state: present
+
+# -------------------------------
+# ROOT PASSWORD UNIVERSAL FIX
+# -------------------------------
+
+- name: Try login with known root password
+  command: mysql -u root -proot -e "SELECT 1;"
+  register: mysql_login_with_pass
+  ignore_errors: yes
+
+- name: Try login without password
+  command: mysql -u root -e "SELECT 1;"
+  register: mysql_login_no_pass
+  ignore_errors: yes
+
+# Case 1: No password → set it
+- name: Set root password (no password case)
+  command: >
+    mysql -u root -e "
+    ALTER USER 'root'@'localhost' IDENTIFIED BY 'root';
+    FLUSH PRIVILEGES;"
+  when: mysql_login_no_pass.rc == 0
+
+# Case 2: Password already set but unknown → skip (manual fix needed)
+- name: Fail if root password is unknown
+  fail:
+    msg: "Root password already set and unknown. Reset manually."
+  when:
+    - mysql_login_no_pass.rc != 0
+    - mysql_login_with_pass.rc != 0
+
+# Case 3: Password works → continue normally
+- name: Ensure root password is correct
+  mysql_user:
+    name: root
+    host: localhost
+    password: "root"
+    login_user: root
+    login_password: "root"
+    state: present
+  when: mysql_login_with_pass.rc == 0 or mysql_login_no_pass.rc == 0
+
+# -------------------------------
+# STORE CREDENTIALS (BEST PRACTICE)
+# -------------------------------
+
+- name: Create /root/.my.cnf
+  copy:
+    dest: /root/.my.cnf
+    content: |
+      [client]
+      user=root
+      password=root
+    owner: root
+    group: root
+    mode: '0600'
+
+# -------------------------------
+# MYSQL SECURE INSTALLATION STEPS
+# -------------------------------
+
+- name: Remove anonymous users
+  mysql_user:
+    name: ''
+    host_all: yes
+    state: absent
+
+- name: Remove remote root login
+  mysql_user:
+    name: root
+    host: "%"
+    state: absent
+
+- name: Remove test database
+  mysql_db:
+    name: test
+    state: absent
+
+# -------------------------------
+# WORDPRESS DATABASE SETUP
+# -------------------------------
+
+- name: Create WordPress database
+  mysql_db:
+    name: wordpress
+    state: present
+
+- name: Create WordPress user
+  mysql_user:
+    name: shibil
+    password: "Shibil@2001"
+    priv: "wordpress.*:ALL"
+    host: localhost
+    state: present

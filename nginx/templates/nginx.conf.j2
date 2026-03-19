@@ -1,0 +1,37 @@
+server {
+    listen 80;
+    server_name shibilblog.duckdns.org www.shibilblog.duckdns.org;
+
+    root /home/shibil/lemp/public;
+    index index.php index.html;
+
+    # MAIN SITE
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # PHPMYADMIN
+    location /phpmyadmin/ {
+        alias /home/shibil/lemp/public/phpmyadmin/;
+        index index.php;
+    }
+
+    location ~ ^/phpmyadmin/(.+\.php)$ {
+        alias /home/shibil/lemp/public/phpmyadmin/$1;
+        include fastcgi_params;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_param SCRIPT_FILENAME /home/shibil/lemp/public/phpmyadmin/$1;
+    }
+
+    # SECURITY
+    location ~ /\. {
+        deny all;
+    }
+}

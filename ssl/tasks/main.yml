@@ -1,0 +1,61 @@
+---
+# -------------------------------
+# Install dependencies
+# -------------------------------
+- name: Install python and pip
+  dnf:
+    name:
+      - python3
+      - python3-pip
+    state: present
+
+# -------------------------------
+# Install Certbot + nginx plugin
+# -------------------------------
+- name: Install certbot and nginx plugin
+  pip:
+    name:
+      - certbot
+      - certbot-nginx
+    executable: pip3
+
+# -------------------------------
+# Ensure nginx is running
+# -------------------------------
+- name: Ensure nginx is running
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+# -------------------------------
+# Wait for nginx to be ready
+# -------------------------------
+- name: Wait for port 80
+  wait_for:
+    port: 80
+    timeout: 30
+
+# -------------------------------
+# Generate SSL certificate (nginx plugin)
+# -------------------------------
+- name: Generate SSL using nginx plugin
+  command: >
+    /usr/local/bin/certbot --nginx
+    -d {{ domain_name }}
+    --non-interactive
+    --agree-tos
+    -m {{ email }}
+    --redirect
+  args:
+    creates: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+
+# -------------------------------
+# Setup auto-renewal
+# -------------------------------
+- name: Setup certbot auto-renew cron
+  cron:
+    name: Certbot Auto Renewal
+    job: "/usr/local/bin/certbot renew --quiet && systemctl reload nginx"
+    minute: "0"
+    hour: "3"
