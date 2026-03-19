@@ -53,7 +53,6 @@ This project automates the complete deployment of a **LEMP stack** (Linux, Nginx
 ![LEMP Stack Architecture](assets/architecture.png)
 ```
 
----
 
 ## 📁 Project Structure
 
